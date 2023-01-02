@@ -1,0 +1,77 @@
+<html>
+  <head>
+    <title>Shmoogle</title>
+    <style>
+      /* Add your CSS here */
+      body {
+        font-family: Arial, sans-serif;
+      }
+      .header {
+        background-color: #f2f2f2;
+        padding: 20px;
+        text-align: center;
+      }
+      .navbar {
+        overflow: hidden;
+        background-color: #333;
+      }
+      .navbar a {
+        float: left;
+        display: block;
+        color: white;
+        text-align: center;
+        padding: 14px 20px;
+        text-decoration: none;
+      }
+      .navbar a:hover {
+        background-color: #ddd;
+        color: black;
+      }
+      .search-container {
+        float: right;
+      }
+      .search-container input[type=text] {
+        padding: 6px;
+        margin-top: 8px;
+        font-size: 17px;
+        border: none;
+      }
+      .search-container button {
+        float: right;
+        padding: 6px 10px;
+        margin-top: 8px;
+        margin-right: 16px;
+        background: #ddd;
+        font-size: 17px;
+        border: none;
+        cursor: pointer;
+      }
+      .search-container button:hover {
+        background: #ccc;
+      }
+      .main {
+        margin: 0 auto;
+        max-width: 800px;
+        padding: 20px;
+      }
+      .footer {
+        background-color: #f2f2f2;
+        padding: 20px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="main">
+      <h1>Shmoogle</h1>
+    </div>
+    <div class="navbar">
+      <div class="search-container">
+        <form action="/search">
+          <input type="text" placeholder="Search..." name="query">
+          <button type="submit">Submit</button>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>
