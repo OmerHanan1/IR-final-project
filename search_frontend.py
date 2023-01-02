@@ -1,11 +1,74 @@
 from flask import Flask, request, jsonify, render_template
+from nltk.corpus import stopwords
+import re
+import gzip
+import os
+import pickle
+import pandas as pd
+from inverted_index_gcp import *
 
+POSTINGS_GCP_INDEX_URL = "postings_gcp_anchor_training/index.pkl"
+PAGE_RANK_CSV_URL = "pr_part-00000-7cc9c080-88ee-451f-9087-06bc3a940d5e-c000.csv.gz"
+
+# read posting list function
+def read(index, token, path):
+
+    BLOCK_SIZE = 1999998
+    TUPLE_SIZE = 6
+
+    # anchor index tuple size is 8 because the tuple consist of 2 doc_ids (Integer 4 bytes each)
+    if "links" in path:
+        TUPLE_SIZE = 8
+
+    # Reading bin file
+    n_bytes = index.df[token] * TUPLE_SIZE
+    open_files = {}
+    b = []
+    for f_name, offset in index.posting_locs[token]:
+        if f_name not in open_files:
+            open_files[f_name] = open(os.path.join(path, f_name), 'rb')
+        f = open_files[f_name]
+        f.seek(offset)
+        n_read = min(n_bytes, BLOCK_SIZE - offset)
+        b.append(f.read(n_read))
+        n_bytes -= n_read
+    b = b''.join(b)
+
+    for f in open_files.values():
+        f.close()
+
+    # Parsing bin file
+    posting_list = []
+    for i in range(index.df[token]):
+        doc_id = int.from_bytes(b[i * TUPLE_SIZE:i * TUPLE_SIZE + 4], 'big')
+        tf = int.from_bytes(b[i * TUPLE_SIZE + 4:(i + 1) * TUPLE_SIZE], 'big')
+        posting_list.append((doc_id, tf))
+
+    return posting_list
+
+
+with open(POSTINGS_GCP_INDEX_URL, 'rb') as f:
+    inverted_index_anchor = pickle.load(f)
+
+with gzip.open(PAGE_RANK_CSV_URL) as f:
+    page_rank = pd.read_csv(f, header=None)
+
+# flask app
 class MyFlaskApp(Flask):
     def run(self, host=None, port=None, debug=None, **options):
         super(MyFlaskApp, self).run(host=host, port=port, debug=debug, **options)
 
 app = MyFlaskApp(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+
+RE_WORD = re.compile(r"""[\#\@\w](['\-]?\w){2,24}""", re.UNICODE)
+english_stopwords = frozenset(stopwords.words('english'))
+corpus_stopwords = ["category", "references", "also", "external", "links",
+                    "may", "first", "see", "history", "people", "one", "two",
+                    "part", "thumb", "including", "second", "following",
+                    "many", "however", "would", "became"]
+
+all_stopwords = english_stopwords.union(corpus_stopwords)
 
 @app.route('/')
 # def show_banana():
@@ -116,9 +179,29 @@ def search_anchor():
     if len(query) == 0:
       return jsonify(res)
     # BEGIN SOLUTION
-    
+    tokens = [token.group() for token in RE_WORD.finditer(query.lower())]
+    tokens = [t for t in tokens if t not in all_stopwords]
+
+    tf_dict = {}
+    for token in tokens:
+        added = []
+        if token not in inverted_index_anchor.df:
+            continue
+
+        # loading posting list with (word, (doc_id_from, doc_id_dest))
+        posting = read(inverted_index_anchor, token, "postings_gcp_anchor_training/")
+        for _, doc_id_dest in posting:
+            if doc_id_dest in tf_dict:
+                if doc_id_dest not in added:
+                    tf_dict[doc_id_dest] += 1
+            else:
+                added.append(doc_id_dest)
+                tf_dict[doc_id_dest] = 1
+
+        # Sort Documents by number unique of tokens in doc
+    list_of_dict = sorted([(doc_id, score) for doc_id, score in tf_dict.items()], key=lambda x: x[1], reverse=True)
     # END SOLUTION
-    return jsonify(res)
+    return jsonify(list_of_dict)
 
 @app.route("/get_pagerank", methods=['POST'])
 def get_pagerank():
