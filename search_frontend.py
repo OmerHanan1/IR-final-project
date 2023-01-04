@@ -53,7 +53,7 @@ with open(POSTINGS_GCP_INDEX_URL, 'rb') as f:
 with gzip.open(PAGE_RANK_CSV_URL) as f:
     page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
     max_pr_value = max(page_rank.values())
-    page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.values}
+    page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
 
 # flask app
 class MyFlaskApp(Flask):
