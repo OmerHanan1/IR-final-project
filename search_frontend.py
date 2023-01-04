@@ -51,7 +51,9 @@ with open(POSTINGS_GCP_INDEX_URL, 'rb') as f:
     inverted_index_anchor = pickle.load(f)
 
 with gzip.open(PAGE_RANK_CSV_URL) as f:
-    page_rank = pd.read_csv(f, header=None)
+    page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
+    max_pr_value = max(page_rank.values())
+    page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.values}
 
 # flask app
 class MyFlaskApp(Flask):
@@ -198,7 +200,7 @@ def search_anchor():
                 added.append(doc_id_dest)
                 tf_dict[doc_id_dest] = 1
 
-        # Sort Documents by number unique of tokens in doc
+    # Sort Documents by number unique of tokens in doc
     list_of_dict = sorted([(doc_id, score) for doc_id, score in tf_dict.items()], key=lambda x: x[1], reverse=True)
     # END SOLUTION
     return jsonify(list_of_dict)
@@ -224,7 +226,7 @@ def get_pagerank():
     if len(wiki_ids) == 0:
       return jsonify(res)
     # BEGIN SOLUTION
-
+    res = [page_rank[wiki_id] for wiki_id in wiki_ids] 
     # END SOLUTION
     return jsonify(res)
 
