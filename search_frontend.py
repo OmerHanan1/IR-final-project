@@ -9,6 +9,7 @@ from inverted_index_gcp import *
 
 POSTINGS_GCP_INDEX_URL = "postings_gcp_anchor_training/index.pkl"
 PAGE_RANK_CSV_URL = "pr_part-00000-7cc9c080-88ee-451f-9087-06bc3a940d5e-c000.csv.gz"
+PAGE_VIEW_DICT = "pageview_pageviews-202108-user.pkl"
 
 # read posting list function
 def read(index, token, path):
@@ -49,6 +50,9 @@ def read(index, token, path):
 
 with open(POSTINGS_GCP_INDEX_URL, 'rb') as f:
     inverted_index_anchor = pickle.load(f)
+
+with open(PAGE_VIEW_DICT, 'rb') as f:
+    page_view = pickle.load(f)
 
 with gzip.open(PAGE_RANK_CSV_URL) as f:
     page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
@@ -253,7 +257,15 @@ def get_pageview():
     if len(wiki_ids) == 0:
       return jsonify(res)
     # BEGIN SOLUTION
-
+    try:
+        res = list(map(lambda x: (page_view[x]), wiki_ids))
+    except:
+        res = []
+        for pageID in wiki_ids:
+            try:
+                res.append(page_view[pageID])
+            except:
+                res.append(0) 
     # END SOLUTION
     return jsonify(res)
 
