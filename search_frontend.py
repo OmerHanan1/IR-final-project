@@ -7,12 +7,18 @@ import pandas as pd
 from inverted_index_gcp import *
 from frontend_utils import *
 
+<<<<<<< HEAD
 INDEX_FILE = "index"
 POSTINGS_GCP_TEXT_INDEX_FOLDER_URL = "postings_gcp_text"
 POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL = "postings_gcp_anchor"
 POSTINGS_GCP_TITLE_INDEX_FOLDER_URL = "postings_gcp_title"
 PAGE_RANK_CSV_URL = "pr_part-00000-8b293cd5-fd79-47e7-a641-3d067da0c2b0-c000.csv.gz"
 DT_PATH = "dt/dt.pkl"
+=======
+POSTINGS_GCP_INDEX_URL = "postings_gcp_anchor_training/index.pkl"
+PAGE_RANK_CSV_URL = "pr_part-00000-7cc9c080-88ee-451f-9087-06bc3a940d5e-c000.csv.gz"
+PAGE_VIEW_DICT = "pageview_pageviews-202108-user.pkl"
+>>>>>>> a6e4204d930cdb04975770123e6c9693a8deff7d
 
 
 # open files (inverted indexes etc...)
@@ -29,6 +35,29 @@ with open(DT_PATH, 'rb') as f:
 #     page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
 
 
+<<<<<<< HEAD
+=======
+    # Parsing bin file
+    posting_list = []
+    for i in range(index.df[token]):
+        doc_id = int.from_bytes(b[i * TUPLE_SIZE:i * TUPLE_SIZE + 4], 'big')
+        tf = int.from_bytes(b[i * TUPLE_SIZE + 4:(i + 1) * TUPLE_SIZE], 'big')
+        posting_list.append((doc_id, tf))
+
+    return posting_list
+
+
+with open(POSTINGS_GCP_INDEX_URL, 'rb') as f:
+    inverted_index_anchor = pickle.load(f)
+
+with open(PAGE_VIEW_DICT, 'rb') as f:
+    page_view = pickle.load(f)
+
+with gzip.open(PAGE_RANK_CSV_URL) as f:
+    page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
+    max_pr_value = max(page_rank.values())
+    page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
+>>>>>>> a6e4204d930cdb04975770123e6c9693a8deff7d
 
 # flask app
 class MyFlaskApp(Flask):
@@ -231,7 +260,15 @@ def get_pageview():
     if len(wiki_ids) == 0:
       return jsonify(res)
     # BEGIN SOLUTION
-
+    try:
+        res = list(map(lambda x: (page_view[x]), wiki_ids))
+    except:
+        res = []
+        for pageID in wiki_ids:
+            try:
+                res.append(page_view[pageID])
+            except:
+                res.append(0) 
     # END SOLUTION
     return jsonify(res)
 
