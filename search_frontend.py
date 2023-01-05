@@ -1,59 +1,34 @@
 from flask import Flask, request, jsonify, render_template
 from nltk.corpus import stopwords
-import re
 import gzip
 import os
 import pickle
 import pandas as pd
 from inverted_index_gcp import *
+from frontend_utils import *
 
-POSTINGS_GCP_INDEX_URL = "postings_gcp_anchor_training/index.pkl"
-PAGE_RANK_CSV_URL = "pr_part-00000-7cc9c080-88ee-451f-9087-06bc3a940d5e-c000.csv.gz"
-
-# read posting list function
-def read(index, token, path):
-
-    BLOCK_SIZE = 1999998
-    TUPLE_SIZE = 6
-
-    # anchor index tuple size is 8 because the tuple consist of 2 doc_ids (Integer 4 bytes each)
-    if "links" in path:
-        TUPLE_SIZE = 8
-
-    # Reading bin file
-    n_bytes = index.df[token] * TUPLE_SIZE
-    open_files = {}
-    b = []
-    for f_name, offset in index.posting_locs[token]:
-        if f_name not in open_files:
-            open_files[f_name] = open(os.path.join(path, f_name), 'rb')
-        f = open_files[f_name]
-        f.seek(offset)
-        n_read = min(n_bytes, BLOCK_SIZE - offset)
-        b.append(f.read(n_read))
-        n_bytes -= n_read
-    b = b''.join(b)
-
-    for f in open_files.values():
-        f.close()
-
-    # Parsing bin file
-    posting_list = []
-    for i in range(index.df[token]):
-        doc_id = int.from_bytes(b[i * TUPLE_SIZE:i * TUPLE_SIZE + 4], 'big')
-        tf = int.from_bytes(b[i * TUPLE_SIZE + 4:(i + 1) * TUPLE_SIZE], 'big')
-        posting_list.append((doc_id, tf))
-
-    return posting_list
+INDEX_FILE = "index"
+POSTINGS_GCP_TEXT_INDEX_FOLDER_URL = "postings_gcp_text"
+POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL = "postings_gcp_anchor"
+POSTINGS_GCP_TITLE_INDEX_FOLDER_URL = "postings_gcp_title"
+PAGE_RANK_CSV_URL = "pr_part-00000-8b293cd5-fd79-47e7-a641-3d067da0c2b0-c000.csv.gz"
+DT_PATH = "dt/dt.pkl"
 
 
-with open(POSTINGS_GCP_INDEX_URL, 'rb') as f:
-    inverted_index_anchor = pickle.load(f)
+# open files (inverted indexes etc...)
+inverted_index_body = InvertedIndex.read_index(POSTINGS_GCP_TEXT_INDEX_FOLDER_URL, INDEX_FILE)
+inverted_index_anchor = InvertedIndex.read_index(POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL, INDEX_FILE)
+inverted_index_title = InvertedIndex.read_index(POSTINGS_GCP_TITLE_INDEX_FOLDER_URL, INDEX_FILE)
 
-with gzip.open(PAGE_RANK_CSV_URL) as f:
-    page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
-    max_pr_value = max(page_rank.values())
-    page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
+with open(DT_PATH, 'rb') as f:
+    DT = pickle.load(f)
+
+# with gzip.open(PAGE_RANK_CSV_URL) as f:
+#     page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
+#     max_pr_value = max(page_rank.values())
+#     page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
+
+
 
 # flask app
 class MyFlaskApp(Flask):
@@ -63,20 +38,9 @@ class MyFlaskApp(Flask):
 app = MyFlaskApp(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
-RE_WORD = re.compile(r"""[\#\@\w](['\-]?\w){2,24}""", re.UNICODE)
-english_stopwords = frozenset(stopwords.words('english'))
-corpus_stopwords = ["category", "references", "also", "external", "links",
-                    "may", "first", "see", "history", "people", "one", "two",
-                    "part", "thumb", "including", "second", "following",
-                    "many", "however", "would", "became"]
-
-all_stopwords = english_stopwords.union(corpus_stopwords)
-
 @app.route('/')
 # def show_banana():
 #     return render_template('banana.html')
-# def show_beautiful():
-#     return render_template('beautiful.html')
 def show_shmoogle():
     return render_template('shmoogle.html')
 
@@ -124,13 +88,15 @@ def search_body():
         element is a tuple (wiki_id, title).
     '''
     res = []
-    query = request.args.get('query', '')
     if len(query) == 0:
-      return jsonify(res)
-    # BEGIN SOLUTION
+      return res
 
-    # END SOLUTION
-    return jsonify(res)
+    # tokenize query
+    tokens = tokenize(query)
+
+    # get posting lists for specific query
+    posting_lists = inverted_index_body.get_posting_lists(tokens, POSTINGS_GCP_TEXT_INDEX_FOLDER_URL)
+    return jsonify(posting_lists)
 
 @app.route("/search_title")
 def search_title():
@@ -150,12 +116,24 @@ def search_title():
         worst where each element is a tuple (wiki_id, title).
     '''
     res = []
-    query = request.args.get('query', '')
     if len(query) == 0:
-      return jsonify(res)
-    # BEGIN SOLUTION
+      return res
+    # tokenizing
+    tokens = tokenize(query)
 
-    # END SOLUTION
+    # loading posting list with (word, (doc_id, tf))
+    posting_lists = inverted_index_body.get_posting_lists(tokens, POSTINGS_GCP_TITLE_INDEX_FOLDER_URL)
+
+    tf_dict = {}
+    for posting in posting_lists:
+        for doc_id, tf in posting:
+            if doc_id in tf_dict:
+                tf_dict[doc_id] += tf
+            else:
+                tf_dict[doc_id] = tf
+
+    list_of_docs = sorted([(doc_id, score) for doc_id, score in tf_dict.items()], key=lambda x: x[1], reverse=True)
+    res = [(doc_id, DT[doc_id]) for doc_id, score in list_of_docs]
     return jsonify(res)
 
 @app.route("/search_anchor")
@@ -191,7 +169,7 @@ def search_anchor():
             continue
 
         # loading posting list with (word, (doc_id_from, doc_id_dest))
-        posting = read(inverted_index_anchor, token, "postings_gcp_anchor_training/")
+        posting = read_posting_list(inverted_index_anchor, token, POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL+"/")
         for _, doc_id_dest in posting:
             if doc_id_dest in tf_dict:
                 if doc_id_dest not in added:

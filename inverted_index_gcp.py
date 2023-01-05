@@ -93,7 +93,6 @@ TUPLE_SIZE = 6       # We're going to pack the doc_id and tf values in this
                      # many bytes.
 TF_MASK = 2 ** 16 - 1 # Masking the 16 low bits of an integer
 
-
 class InvertedIndex:  
     def __init__(self, docs={}):
         """ Initializes the inverted index and add documents to it (if provided).
@@ -164,6 +163,31 @@ class InvertedIndex:
                     posting_list.append((doc_id, tf))
                 yield w, posting_list
 
+    def get_posting_lists(self, query, base_dir=''):
+        posting_lists = []
+        for word in query:
+            posting_list = self.read_posting_list(word, base_dir)
+            posting_lists.append(posting_list)
+
+        return posting_lists
+
+    def read_posting_list(self, w, base_dir=''):
+        TUPLE_SIZE = 6
+        from contextlib import closing
+        with closing(MultiFileReader()) as reader:
+            try:
+                locs = self.posting_locs[w]
+                new_locs = [tuple((base_dir + '/' + locs[0][0], locs[0][1]))]
+                b = reader.read(new_locs, self.df[w] * TUPLE_SIZE)
+                posting_list = []
+                for i in range(self.df[w]):
+                    doc_id = int.from_bytes(b[i * TUPLE_SIZE:i * TUPLE_SIZE + 4], 'big')
+                    tf = int.from_bytes(b[i * TUPLE_SIZE + 4:(i + 1) * TUPLE_SIZE], 'big')
+                    posting_list.append((doc_id, tf))
+                return posting_list
+            except:
+                return []
+
     @staticmethod
     def read_index(base_dir, name):
         with open(Path(base_dir) / f'{name}.pkl', 'rb') as f:
@@ -175,7 +199,6 @@ class InvertedIndex:
         path_globals.unlink()
         for p in Path(base_dir).rglob(f'{name}_*.bin'):
             p.unlink()
-
 
     @staticmethod
     def write_a_posting_list(b_w_pl, bucket_name):
