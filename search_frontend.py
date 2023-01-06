@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify, render_template
 from nltk.corpus import stopwords
 import gzip
 import os
+import math
+from collections import Counter
 import pickle
 import pandas as pd
 from inverted_index_gcp import *
@@ -12,31 +14,29 @@ POSTINGS_GCP_TEXT_INDEX_FOLDER_URL = "postings_gcp_text"
 POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL = "postings_gcp_anchor"
 POSTINGS_GCP_TITLE_INDEX_FOLDER_URL = "postings_gcp_title"
 PAGE_RANK_CSV_URL = "pr_part-00000-8b293cd5-fd79-47e7-a641-3d067da0c2b0-c000.csv.gz"
-DT_PATH = "dt/dt.pkl"
-PAGE_RANK_CSV_URL = "pr_part-00000-7cc9c080-88ee-451f-9087-06bc3a940d5e-c000.csv.gz"
 PAGE_VIEW_DICT = "pageview_pageviews-202108-user.pkl"
+DT_PATH = "dt/dt.pkl"
+DL_PATH = "dl/dl.pkl"
 
 # open files (inverted indexes etc...)
 inverted_index_body = InvertedIndex.read_index(POSTINGS_GCP_TEXT_INDEX_FOLDER_URL, INDEX_FILE)
 inverted_index_anchor = InvertedIndex.read_index(POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL, INDEX_FILE)
 inverted_index_title = InvertedIndex.read_index(POSTINGS_GCP_TITLE_INDEX_FOLDER_URL, INDEX_FILE)
 
+with open(DL_PATH, 'rb') as f:
+    DL = pickle.load(f)
+    DL_LEN = len(DL)
+
 with open(DT_PATH, 'rb') as f:
     DT = pickle.load(f)
+
+# with open(PAGE_VIEW_DICT, 'rb') as f:
+#     page_view = pickle.load(f)
 
 # with gzip.open(PAGE_RANK_CSV_URL) as f:
 #     page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
 #     max_pr_value = max(page_rank.values())
 #     page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
-
-
-with open(PAGE_VIEW_DICT, 'rb') as f:
-    page_view = pickle.load(f)
-
-with gzip.open(PAGE_RANK_CSV_URL) as f:
-    page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
-    max_pr_value = max(page_rank.values())
-    page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
 
 # flask app
 class MyFlaskApp(Flask):
@@ -96,15 +96,62 @@ def search_body():
         element is a tuple (wiki_id, title).
     '''
     res = []
+    query = request.args.get('query', '')
     if len(query) == 0:
-      return res
+      return jsonify(res)
 
-    # tokenize query
+    # tokenizing the query
     tokens = tokenize(query)
 
-    # get posting lists for specific query
-    posting_lists = inverted_index_body.get_posting_lists(tokens, POSTINGS_GCP_TEXT_INDEX_FOLDER_URL)
-    return jsonify(posting_lists)
+    # get tf of each token in query
+    query_tf = Counter(tokens)
+
+    numerator = Counter()
+    docs_denominator = Counter()
+    query_denominator = 0
+    query_len = len(tokens)
+
+    for token in tokens:
+        weight_token_query = query_tf[token]/query_len
+        query_denominator += math.pow(weight_token_query,2)
+
+        # loading posting list with (word, (doc_id, tf))
+        posting_list = inverted_index_body.read_posting_list(token, POSTINGS_GCP_TEXT_INDEX_FOLDER_URL)
+        
+        # calc idf for specific token
+        token_df = inverted_index_body.df[token]
+        token_idf = math.log(DL_LEN/token_df,2)
+
+        for page_id, word_freq in posting_list:
+
+            #normalized tf (by the length of document)
+            try:
+                tf = (word_freq/DL[page_id])
+                weight_word_page = tf*token_idf
+                numerator[page_id] += weight_word_page*weight_token_query
+                docs_denominator[page_id] += math.pow(weight_word_page,2)
+            except:
+                pass
+
+    cosim = Counter()
+    for page_id in numerator.keys():
+        cosim[page_id] = numerator[page_id]/(math.sqrt(docs_denominator[page_id]*query_denominator))
+
+    cosim = cosim.most_common()
+    if (len(cosim)>100):
+      cosim = cosim[:100]
+    print(cosim)
+    try :
+        res = list(map(lambda x: tuple((x[0], DT[x[0]])), cosim))
+    except:
+        new_res = []
+        for item in cosim:
+            try:
+                new_res.append(tuple((item[0], DT[item[0]])))
+            except:
+                pass
+        res = new_res   
+    return jsonify(res)
 
 @app.route("/search_title")
 def search_title():
@@ -124,21 +171,22 @@ def search_title():
         worst where each element is a tuple (wiki_id, title).
     '''
     res = []
+    query = request.args.get('query', '')
     if len(query) == 0:
-      return res
+      return jsonify(res)
     # tokenizing
     tokens = tokenize(query)
 
     # loading posting list with (word, (doc_id, tf))
-    posting_lists = inverted_index_body.get_posting_lists(tokens, POSTINGS_GCP_TITLE_INDEX_FOLDER_URL)
+    posting_lists = inverted_index_title.get_posting_lists(tokens, POSTINGS_GCP_TITLE_INDEX_FOLDER_URL)
 
     tf_dict = {}
     for posting in posting_lists:
         for doc_id, tf in posting:
             if doc_id in tf_dict:
-                tf_dict[doc_id] += tf
+                tf_dict[doc_id] += 1
             else:
-                tf_dict[doc_id] = tf
+                tf_dict[doc_id] = 1
 
     list_of_docs = sorted([(doc_id, score) for doc_id, score in tf_dict.items()], key=lambda x: x[1], reverse=True)
     res = [(doc_id, DT[doc_id]) for doc_id, score in list_of_docs]
