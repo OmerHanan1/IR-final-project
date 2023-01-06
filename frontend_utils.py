@@ -1,6 +1,5 @@
+import re
 from nltk.corpus import stopwords
-
-from inverted_index_gcp import *
 
 def tokenize(text):
     """

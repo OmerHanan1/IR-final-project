@@ -1,11 +1,8 @@
 from flask import Flask, request, jsonify, render_template
-from nltk.corpus import stopwords
 import gzip
-import os
 import math
 from collections import Counter
 import pickle
-import pandas as pd
 from inverted_index_gcp import *
 from frontend_utils import *
 
@@ -13,8 +10,8 @@ INDEX_FILE = "index"
 POSTINGS_GCP_TEXT_INDEX_FOLDER_URL = "postings_gcp_text"
 POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL = "postings_gcp_anchor"
 POSTINGS_GCP_TITLE_INDEX_FOLDER_URL = "postings_gcp_title"
-PAGE_RANK_CSV_URL = "pr_part-00000-8b293cd5-fd79-47e7-a641-3d067da0c2b0-c000.csv.gz"
-PAGE_VIEW_DICT = "pageview_pageviews-202108-user.pkl"
+PAGE_RANK_URL = "pr/pr_part-00000-8b293cd5-fd79-47e7-a641-3d067da0c2b0-c000.csv.gz"
+PAGE_VIEW_URL = "pv/pageview_pageviews-202108-user.pkl"
 DT_PATH = "dt/dt.pkl"
 DL_PATH = "dl/dl.pkl"
 
@@ -30,13 +27,13 @@ with open(DL_PATH, 'rb') as f:
 with open(DT_PATH, 'rb') as f:
     DT = pickle.load(f)
 
-# with open(PAGE_VIEW_DICT, 'rb') as f:
-#     page_view = pickle.load(f)
+with open(PAGE_VIEW_URL, 'rb') as f:
+    page_view = pickle.load(f)
 
-# with gzip.open(PAGE_RANK_CSV_URL) as f:
-#     page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
-#     max_pr_value = max(page_rank.values())
-#     page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
+with gzip.open(PAGE_RANK_URL) as f:
+    page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
+    max_pr_value = max(page_rank.values())
+    page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
 
 # flask app
 class MyFlaskApp(Flask):
@@ -151,6 +148,7 @@ def search_body():
             except:
                 pass
         res = new_res   
+    
     return jsonify(res)
 
 @app.route("/search_title")
@@ -174,6 +172,7 @@ def search_title():
     query = request.args.get('query', '')
     if len(query) == 0:
       return jsonify(res)
+
     # tokenizing
     tokens = tokenize(query)
 
@@ -190,6 +189,7 @@ def search_title():
 
     list_of_docs = sorted([(doc_id, score) for doc_id, score in tf_dict.items()], key=lambda x: x[1], reverse=True)
     res = [(doc_id, DT[doc_id]) for doc_id, score in list_of_docs]
+    
     return jsonify(res)
 
 @app.route("/search_anchor")
@@ -214,9 +214,9 @@ def search_anchor():
     query = request.args.get('query', '')
     if len(query) == 0:
       return jsonify(res)
-    # BEGIN SOLUTION
-    tokens = [token.group() for token in RE_WORD.finditer(query.lower())]
-    tokens = [t for t in tokens if t not in all_stopwords]
+
+    # tokenizing
+    tokens = tokenize(query)
 
     tf_dict = {}
     for token in tokens:
@@ -236,7 +236,7 @@ def search_anchor():
 
     # Sort Documents by number unique of tokens in doc
     list_of_dict = sorted([(doc_id, score) for doc_id, score in tf_dict.items()], key=lambda x: x[1], reverse=True)
-    # END SOLUTION
+
     return jsonify(list_of_dict)
 
 @app.route("/get_pagerank", methods=['POST'])
