@@ -1,8 +1,9 @@
 from flask import Flask, request, jsonify, render_template
 import gzip
 import math
-from collections import Counter
+import pandas as pd
 import pickle
+from collections import Counter
 from inverted_index_gcp import *
 from frontend_utils import *
 
@@ -14,6 +15,8 @@ PAGE_RANK_URL = "pr/pr_part-00000-8b293cd5-fd79-47e7-a641-3d067da0c2b0-c000.csv.
 PAGE_VIEW_URL = "pv/pageview_pageviews-202108-user.pkl"
 DT_PATH = "dt/dt.pkl"
 DL_PATH = "dl/dl.pkl"
+NF_PATH = "nf/nf.pkl"
+
 
 # open files (inverted indexes etc...)
 inverted_index_body = InvertedIndex.read_index(POSTINGS_GCP_TEXT_INDEX_FOLDER_URL, INDEX_FILE)
@@ -26,6 +29,9 @@ with open(DL_PATH, 'rb') as f:
 
 with open(DT_PATH, 'rb') as f:
     DT = pickle.load(f)
+
+with open(NF_PATH, 'rb') as f:
+    NF = pickle.load(f)
 
 with open(PAGE_VIEW_URL, 'rb') as f:
     page_view = pickle.load(f)
@@ -104,51 +110,55 @@ def search_body():
     query_tf = Counter(tokens)
 
     numerator = Counter()
-    docs_denominator = Counter()
     query_denominator = 0
-    query_len = len(tokens)
+    weight_token_query = 0
 
+    query_len = len(tokens)
     for token in tokens:
-        weight_token_query = query_tf[token]/query_len
-        query_denominator += math.pow(weight_token_query,2)
+
+        # calc idf for specific token
+        try:
+          token_df = inverted_index_body.df[token]
+        except:
+            continue
+        token_idf = math.log(DL_LEN/token_df,2)
+
+        # calc query_token_tf
+        tf_of_query_token = query_tf[token]/query_len
+        weight_token_query = tf_of_query_token*token_idf
+        query_denominator += math.pow(weight_token_query ,2) # New line
 
         # loading posting list with (word, (doc_id, tf))
         posting_list = inverted_index_body.read_posting_list(token, POSTINGS_GCP_TEXT_INDEX_FOLDER_URL)
-        
-        # calc idf for specific token
-        token_df = inverted_index_body.df[token]
-        token_idf = math.log(DL_LEN/token_df,2)
-
         for page_id, word_freq in posting_list:
-
             #normalized tf (by the length of document)
             try:
                 tf = (word_freq/DL[page_id])
                 weight_word_page = tf*token_idf
                 numerator[page_id] += weight_word_page*weight_token_query
-                docs_denominator[page_id] += math.pow(weight_word_page,2)
             except:
                 pass
 
     cosim = Counter()
     for page_id in numerator.keys():
-        cosim[page_id] = numerator[page_id]/(math.sqrt(docs_denominator[page_id]*query_denominator))
-
-    cosim = cosim.most_common()
-    if (len(cosim)>100):
-      cosim = cosim[:100]
-    print(cosim)
+      cosim[page_id] = numerator[page_id]/((math.sqrt(query_denominator)*NF[page_id]))
+    best = cosim.most_common()
+    for i in best:
+      if i[0] == 60283633:
+        print(i)
+    if (len(best)>100):
+      best = best[:100]
+    print(best)
     try :
-        res = list(map(lambda x: tuple((x[0], DT[x[0]])), cosim))
+        res = list(map(lambda x: tuple((x[0], DT[x[0]])), best))
     except:
         new_res = []
-        for item in cosim:
+        for item in best:
             try:
                 new_res.append(tuple((item[0], DT[item[0]])))
             except:
                 pass
-        res = new_res   
-    
+        res = new_res        
     return jsonify(res)
 
 @app.route("/search_title")
@@ -218,26 +228,22 @@ def search_anchor():
     # tokenizing
     tokens = tokenize(query)
 
+    # loading posting list with (word, (doc_id, tf))
+    posting_lists = inverted_index_title.get_posting_lists(tokens, POSTINGS_GCP_TITLE_INDEX_FOLDER_URL)
+
     tf_dict = {}
-    for token in tokens:
-        added = []
-        if token not in inverted_index_anchor.df:
-            continue
-
-        # loading posting list with (word, (doc_id_from, doc_id_dest))
-        posting = read_posting_list(inverted_index_anchor, token, POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL+"/")
-        for _, doc_id_dest in posting:
-            if doc_id_dest in tf_dict:
-                if doc_id_dest not in added:
-                    tf_dict[doc_id_dest] += 1
+    for posting in posting_lists:
+        for doc_id, tf in posting:
+            if doc_id in tf_dict:
+                tf_dict[doc_id] += 1
             else:
-                added.append(doc_id_dest)
-                tf_dict[doc_id_dest] = 1
+                tf_dict[doc_id] = 1
 
-    # Sort Documents by number unique of tokens in doc
-    list_of_dict = sorted([(doc_id, score) for doc_id, score in tf_dict.items()], key=lambda x: x[1], reverse=True)
+    list_of_docs = sorted([(doc_id, score) for doc_id, score in tf_dict.items()], key=lambda x: x[1], reverse=True)
+    res = [(doc_id, DT[doc_id]) for doc_id, score in list_of_docs]
+    
+    return jsonify(res)
 
-    return jsonify(list_of_dict)
 
 @app.route("/get_pagerank", methods=['POST'])
 def get_pagerank():

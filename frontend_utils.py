@@ -11,7 +11,7 @@ def tokenize(text):
     -----------
     list of tokens (e.g., list of tokens).
     """
-    RE_WORD = re.compile(r"""[\#\@\w](['\-]?\w){2,24}""", re.UNICODE)
+    RE_WORD = re.compile(r"""[\#\@\w](['\-]?[\w,]?[\w.]?(?:['\-]?[\w,]?[\w])){0,24}""", re.UNICODE)
     english_stopwords = frozenset(stopwords.words('english'))
     corpus_stopwords = ["category", "references", "also", "external", "links",
                         "may", "first", "see", "history", "people", "one", "two",
