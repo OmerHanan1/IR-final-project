@@ -33,13 +33,13 @@ with open(DT_PATH, 'rb') as f:
 with open(NF_PATH, 'rb') as f:
     NF = pickle.load(f)
 
-with open(PAGE_VIEW_URL, 'rb') as f:
-    page_view = pickle.load(f)
+# with open(PAGE_VIEW_URL, 'rb') as f:
+#     page_view = pickle.load(f)
 
-with gzip.open(PAGE_RANK_URL) as f:
-    page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
-    max_pr_value = max(page_rank.values())
-    page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
+# with gzip.open(PAGE_RANK_URL) as f:
+#     page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
+#     max_pr_value = max(page_rank.values())
+#     page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
 
 # flask app
 class MyFlaskApp(Flask):
@@ -107,7 +107,7 @@ def search_body():
     tokens = tokenize(query)
 
     # get tf of each token in query
-    query_tf = Counter(tokens)
+    query_freq = Counter(tokens)
 
     numerator = Counter()
     query_denominator = 0
@@ -121,12 +121,12 @@ def search_body():
           token_df = inverted_index_body.df[token]
         except:
             continue
-        token_idf = math.log(DL_LEN/token_df,2)
+        token_idf = math.log(DL_LEN/token_df,10)
 
         # calc query_token_tf
-        tf_of_query_token = query_tf[token]/query_len
+        tf_of_query_token = query_freq[token]/query_len
         weight_token_query = tf_of_query_token*token_idf
-        query_denominator += math.pow(weight_token_query ,2) # New line
+        query_denominator += math.pow(weight_token_query ,2)
 
         # loading posting list with (word, (doc_id, tf))
         posting_list = inverted_index_body.read_posting_list(token, POSTINGS_GCP_TEXT_INDEX_FOLDER_URL)
@@ -142,23 +142,14 @@ def search_body():
     cosim = Counter()
     for page_id in numerator.keys():
       cosim[page_id] = numerator[page_id]/((math.sqrt(query_denominator)*NF[page_id]))
-    best = cosim.most_common()
-    for i in best:
-      if i[0] == 60283633:
-        print(i)
-    if (len(best)>100):
-      best = best[:100]
-    print(best)
-    try :
-        res = list(map(lambda x: tuple((x[0], DT[x[0]])), best))
-    except:
-        new_res = []
-        for item in best:
-            try:
-                new_res.append(tuple((item[0], DT[item[0]])))
-            except:
-                pass
-        res = new_res        
+    sorted_cosim = cosim.most_common()
+
+    # take first 100 
+    best = sorted_cosim[:100]
+    
+    # take page titles according to id
+    res = [(x[0], DT[x[0]]) for x in best]    
+
     return jsonify(res)
 
 @app.route("/search_title")
