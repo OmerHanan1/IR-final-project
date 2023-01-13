@@ -68,10 +68,13 @@ To issue a query navigate to a URL like:
     http://SERVER/search?query=hello+world
 where SERVER is something like XXXX-XX-XX-XX-XX.ngrok.io
 if you're using ngrok on Colab or your external IP on GCP.
-![BM25 simularity](/images/BM25.png)
+
+<img src="images/BM25.png" width="400"/>
 
 ### Search_body:
-![Cosine Simularity](/images/CosineSim.png)
+
+<img src="images/CosineSim.png" width="400"/>
+
 ### Search title:
 
 ### Search anchor:
