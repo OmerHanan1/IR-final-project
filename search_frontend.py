@@ -81,21 +81,32 @@ def search():
     query = request.args.get('query', '')
     if len(query) == 0:
       return jsonify(res)
+
+    # const bool  
+    STEMMING = True
+    COSSIM = True
+
+    K = 1.2
+    B = 0.75
+    AVGDL = 341.0890174848911
+
     # tokenizing the query
-    tokens = tokenize(query)
+    tokens = tokenize(query, STEMMING)
 
-    # cossim without stemming
-    sorted_doc_score_pairs = cossim(tokens, inverted_index_body, POSTINGS_GCP_TEXT_INDEX_FOLDER_URL, DL, DL_LEN, NF)
+    if STEMMING:
+        inverted_index = inverted_index_body_stemmed
+        inverted_index_folder_url = POSTINGS_GCP_TEXT_STEMMED_INDEX_FOLDER_URL
+    else:
+        inverted_index = inverted_index_body
+        inverted_index_folder_url = POSTINGS_GCP_TEXT_INDEX_FOLDER_URL
+
+    if COSSIM:
+        sorted_doc_score_pairs = cossim(tokens, inverted_index, inverted_index_folder_url, DL, DL_LEN, NF)
+    else:
+        sorted_doc_score_pairs = BM25(tokens, K, B, AVGDL, inverted_index, inverted_index_folder_url, DL, DL_LEN)
     
-    # BM25
-    # K = ?
-    # B = ?
-    # AVGDL = 341.0890174848911
-    # sorted_doc_score_pairs = BM25(query, K, B, AVGDL, inverted_index_body, POSTINGS_GCP_TEXT_INDEX_FOLDER_URL, DL, DL_LEN)
-
     # take first 100 
     best = sorted_doc_score_pairs[:100]
-    print(best)
 
     # take page titles according to id
     res = [(x[0], DT[x[0]]) for x in best]
@@ -130,7 +141,6 @@ def search_body():
     
     # take first 100 
     best = sorted_doc_score_pairs[:100]
-    print(best)
 
     # take page titles according to id
     res = [(x[0], DT[x[0]]) for x in best]
@@ -162,19 +172,15 @@ def search_title():
     # tokenizing
     tokens = tokenize(query)
 
-    # loading posting list with (word, (doc_id, tf))
-    posting_lists = inverted_index_title.get_posting_lists(tokens, POSTINGS_GCP_TITLE_INDEX_FOLDER_URL)
+    # get number of query tokens in doc_title
+    list_of_docs = get_binary_score(tokens, inverted_index_title, POSTINGS_GCP_TITLE_INDEX_FOLDER_URL)
 
-    tf_dict = {}
-    for posting in posting_lists:
-        for doc_id, tf in posting:
-            if doc_id in tf_dict:
-                tf_dict[doc_id] += 1
-            else:
-                tf_dict[doc_id] = 1
-
-    list_of_docs = sorted([(doc_id, score) for doc_id, score in tf_dict.items()], key=lambda x: x[1], reverse=True)
-    res = [(doc_id, DT[doc_id]) for doc_id, score in list_of_docs]
+    # generate doc_title for each doc_id
+    for doc_id, _ in list_of_docs:
+        try:
+            res.append((doc_id, DT[doc_id]))
+        except:
+            pass   
     
     return jsonify(res)
 
@@ -204,19 +210,11 @@ def search_anchor():
     # tokenizing
     tokens = tokenize(query)
 
-    # loading posting list with (word, (doc_id, tf))
-    posting_lists = inverted_index_title.get_posting_lists(tokens, POSTINGS_GCP_TITLE_INDEX_FOLDER_URL)
+    # get number of query tokens in doc_anchor_text
+    list_of_docs = get_binary_score(tokens, inverted_index_anchor, POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL)
 
-    tf_dict = {}
-    for posting in posting_lists:
-        for doc_id, tf in posting:
-            if doc_id in tf_dict:
-                tf_dict[doc_id] += 1
-            else:
-                tf_dict[doc_id] = 1
-
-    list_of_docs = sorted([(doc_id, score) for doc_id, score in tf_dict.items()], key=lambda x: x[1], reverse=True)
-    for doc_id, score in list_of_docs:
+    # generate doc_title for each doc_id
+    for doc_id, _ in list_of_docs:
         try:
             res.append((doc_id, DT[doc_id]))
         except:

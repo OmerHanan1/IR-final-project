@@ -1,18 +1,11 @@
 import re
 import math
 from collections import Counter
+from nltk.stem.porter import *
 from nltk.corpus import stopwords
 
-def tokenize(text):
-    """
-    This function aims in tokenize a text into a list of tokens. Moreover, it filter stopwords.
-    Parameters:
-    -----------
-    text: string , represting the text to tokenize.
-    Returns:
-    -----------
-    list of tokens (e.g., list of tokens).
-    """
+
+def tokenize(text, STEMMING=False):
     RE_WORD = re.compile(r"""[\#\@\w](['\-]?[\w,]?[\w.]?(?:['\-]?[\w,]?[\w])){0,24}""", re.UNICODE)
     english_stopwords = frozenset(stopwords.words('english'))
     corpus_stopwords = ["category", "references", "also", "external", "links",
@@ -22,8 +15,16 @@ def tokenize(text):
 
     all_stopwords = english_stopwords.union(corpus_stopwords)
 
-    list_of_tokens = [token.group() for token in RE_WORD.finditer(text.lower()) if token.group() not in all_stopwords]
+    tokens = [token.group() for token in RE_WORD.finditer(text.lower())]
+
+    if STEMMING:
+        stemmer = PorterStemmer()
+        list_of_tokens = [stemmer.stem(x) for x in tokens if x not in all_stopwords]
+    else:
+        list_of_tokens = [x for x in tokens if x not in all_stopwords]
+  
     return list_of_tokens
+
 
 def BM25(tokens, K, B, AVGDL, inverted_index, index_folder_url, DL, DL_LEN):
     
@@ -42,12 +43,16 @@ def BM25(tokens, K, B, AVGDL, inverted_index, index_folder_url, DL, DL_LEN):
         posting_list = inverted_index.read_posting_list(token, index_folder_url)
         for page_id, word_freq in posting_list:
             #normalized tf (by the length of document)
-            numerator = word_freq*(K+1)
-            denominator = word_freq + K*(1-B + (B*DL[page_id])/AVGDL)
-            doc_BM25_value[page_id] += token_idf*(numerator/denominator)
+            try:
+                numerator = word_freq*(K+1)
+                denominator = word_freq + K*(1-B + (B*DL[page_id])/AVGDL)
+                doc_BM25_value[page_id] += token_idf*(numerator/denominator)
+            except:
+                pass
         
     sorted_doc_BM25_value = doc_BM25_value.most_common()
     return sorted_doc_BM25_value
+
 
 def cossim(tokens, inverted_index, index_folder_url, DL, DL_LEN, NF):
     
@@ -90,3 +95,20 @@ def cossim(tokens, inverted_index, index_folder_url, DL, DL_LEN, NF):
     
     sorted_doc_cossim_value = cosim.most_common()
     return sorted_doc_cossim_value
+
+
+def get_binary_score(tokens, inverted_index, index_folder_url):
+
+    # loading posting list with (word, (doc_id, tf))
+    posting_lists = inverted_index.get_posting_lists(tokens, index_folder_url)
+
+    tf_dict = {}
+    for posting in posting_lists:
+        for doc_id, _ in posting:
+            if doc_id in tf_dict:
+                tf_dict[doc_id] += 1
+            else:
+                tf_dict[doc_id] = 1
+
+    list_of_docs = sorted([(doc_id, score) for doc_id, score in tf_dict.items()], key=lambda x: x[1], reverse=True)   
+    return list_of_docs
