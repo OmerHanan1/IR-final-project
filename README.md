@@ -1,7 +1,7 @@
 # IR-final-project
 ## Authors: 
-Amit Chen, Omer Hanan.
-
+Amit Chen, Omer Hanan. \
+:smiling_imp:
 ---
 ## Summary:
 Ben Gurion University, Software and Information Systems Engineering, Information retrieval course - final project.
@@ -108,4 +108,3 @@ had in August 2021.
 
 ---
 
-:smiling_imp:
