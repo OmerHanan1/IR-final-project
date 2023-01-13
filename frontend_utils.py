@@ -3,7 +3,42 @@ import math
 from collections import Counter
 from nltk.stem.porter import *
 from nltk.corpus import stopwords
+from nltk.corpus import wordnet
 
+def query_expansion(query):
+
+    synonyms = {}
+    hyponyms = {}
+    
+    for word in query:
+        word_synsets = wordnet.synsets(word)
+        for synset in word_synsets:
+            syn = synset.lemmas()[0].name().lower()
+            if syn and syn != word:
+                synonyms[word] = syn
+                break
+
+    for word in query:
+        word_synsets = wordnet.synsets(word)
+        for synset in word_synsets:
+            try:
+                hyp = synset.hyponyms()[0].name()
+                word_synset = wordnet.synset(hyp)
+                hypernyms = word_synset.hypernyms()
+                lst = ([synset.name().split(".")[0] for synset in hypernyms])
+                h = lst[0].lower()
+                if h != word:
+                    hyponyms[word] = h
+            except:
+                pass
+    for key, val in synonyms.items():
+        if val not in query:
+            query.append(val)
+    for key, val in hyponyms.items():
+        if val not in query:
+            query.append(val)
+
+    return query
 
 def tokenize(text, STEMMING=False):
     RE_WORD = re.compile(r"""[\#\@\w](['\-]?[\w,]?[\w.]?(?:['\-]?[\w,]?[\w])){0,24}""", re.UNICODE)
@@ -16,6 +51,8 @@ def tokenize(text, STEMMING=False):
     all_stopwords = english_stopwords.union(corpus_stopwords)
 
     tokens = [token.group() for token in RE_WORD.finditer(text.lower())]
+
+    tokens = query_expansion(tokens)
 
     if STEMMING:
         stemmer = PorterStemmer()
