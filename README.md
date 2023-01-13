@@ -59,18 +59,19 @@ We created a `score` function, that takes the values from the following function
 4. PageRank- authority measure of a page.
 5. PageView- popularity measure of a page based on views.
 
-And set weighs to every function. for example:
-Score = ( (A * Title)  + (B * Body) + (C * Anchor) + (D * PageRank) + (E * PageView))
+And set weighs to every function. for example: 
+> ```Score = ( (A * Title)  + (B * Body) + (C * Anchor) + (D * PageRank) + (E * PageView) )```
+
 For determine the values of A,B,C,D,E we used `scipy` models.
 
 To issue a query navigate to a URL like:
-    http://YOUR_SERVER_DOMAIN/search?query=hello+world
-where YOUR_SERVER_DOMAIN is something like XXXX-XX-XX-XX-XX.ngrok.io
+    http://SERVER/search?query=hello+world
+where SERVER is something like XXXX-XX-XX-XX-XX.ngrok.io
 if you're using ngrok on Colab or your external IP on GCP.
-![](/images/BM25.png)
+![BM25 simularity](/images/BM25.png)
 
 ### Search_body:
-![](/images/CosineSim.png)
+![Cosine Simularity](/images/CosineSim.png)
 ### Search title:
 
 ### Search anchor:
