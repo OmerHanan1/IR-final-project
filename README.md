@@ -59,29 +59,53 @@ We created a `score` function, that takes the values from the following function
 4. PageRank- authority measure of a page.
 5. PageView- popularity measure of a page based on views.
 
+<img src="images/BM25.png" width="400"/>
+</br>
+
 And set weighs to every function. for example: 
 > ```Score = ( (A * Title)  + (B * Body) + (C * Anchor) + (D * PageRank) + (E * PageView) )```
 
 For determine the values of A,B,C,D,E we used `scipy` models.
 
-To issue a query navigate to a URL like:
-    http://SERVER/search?query=hello+world
-where SERVER is something like XXXX-XX-XX-XX-XX.ngrok.io
+To issue a query navigate to a URL like: \
+http://SERVER/search?query=hello+world \
+where SERVER is something like XXXX-XX-XX-XX-XX.ngrok.io \
 if you're using ngrok on Colab or your external IP on GCP.
 
-<img src="images/BM25.png" width="400"/>
-
 ### Search_body:
-
+Route instruction: </br>
+Returns up to a 100 search results for the query using TFIDF AND COSINE
+SIMILARITY OF THE BODY OF ARTICLES ONLY. \
+DO NOT use stemming. DO USE tokenizer and remove stopwords. 
 <img src="images/CosineSim.png" width="400"/>
+</br>
+Since the document vector length can be calculated in the preprocess (do not depend on the query), we calculated it, and store the values in `NF dictionary` as described in the ***Data Structures*** part.
 
 ### Search title:
+Route instruction: </br>
+Returns ALL (not just top 100) search results that contain A QUERY WORD 
+IN THE TITLE of articles, \
+ordered in descending order of the NUMBER OF QUERY WORDS that appear in the title. \
+For example, a document with a title that matches two of the query words will be ranked before a document with a title that matches only one query term.
 
 ### Search anchor:
+Route instruction: </br>
+Returns ALL (not just top 100) search results that contain A QUERY WORD 
+IN THE ANCHOR TEXT of articles, ordered in descending order of the 
+NUMBER OF QUERY WORDS that appear in anchor text linking to the page. 
+For example, a document with a anchor text that matches two of the 
+query words will be ranked before a document with anchor text that 
+matches only one query term. 
 
 ### [POST] PageRank (authority value):
+Route instruction: </br>
+Returns PageRank values for a list of provided wiki article IDs.
 
 ### [POST] PageView (views):
----
-## How to run the project:
+Route instruction: </br>
+Returns the number of page views that each of the provide wiki articles
+had in August 2021.
 
+---
+
+:smiling_imp:
