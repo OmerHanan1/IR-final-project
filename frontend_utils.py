@@ -9,7 +9,6 @@ def query_expansion(query):
 
     synonyms = {}
     hyponyms = {}
-    antonyms = []
     
     for word in query:
         word_synsets = wordnet.synsets(word)
@@ -32,10 +31,10 @@ def query_expansion(query):
                     hyponyms[word] = h
             except:
                 pass
-    for key, val in synonyms.items():
+    for _, val in synonyms.items():
         if val not in query:
             query.append(val)
-    for key, val in hyponyms.items():
+    for _, val in hyponyms.items():
         if val not in query:
             query.append(val)
 
@@ -110,7 +109,7 @@ def cossim(tokens, inverted_index, index_folder_url, DL, DL_LEN, NF):
           token_df = inverted_index.df[token]
         except:
             continue
-        token_idf = math.log(DL_LEN/token_df,10)
+        token_idf = math.log(DL_LEN/token_df)
 
         # calc query_token_tf
         tf_of_query_token = query_freq[token]/query_len
