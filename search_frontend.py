@@ -39,11 +39,11 @@ with open(NF_PATH, 'rb') as f:
 
 with open(PAGE_VIEW_URL, 'rb') as f:
     page_view = pickle.load(f)
+    # math_log10
 
 with gzip.open(PAGE_RANK_URL) as f:
     page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
-    max_pr_value = max(page_rank.values())
-    page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
+    # math_log2
 
 # flask app
 class MyFlaskApp(Flask):
@@ -83,15 +83,25 @@ def search():
       return jsonify(res)
 
     # const bool  
+    QUERYEXP = False 
     STEMMING = True
-    COSSIM = True
+    COSSIM = False
 
     K = 1.2
     B = 0.75
     AVGDL = 341.0890174848911
+    Wa = 0
+    Wb = 0.5
+    Wt = 0.1
+    Wpv = 0.4
+    Wpr = 0
 
     # tokenizing the query
-    tokens = tokenize(query, STEMMING)
+    tokens = tokenize(query, STEMMING, QUERYEXP)
+    
+    print(f"{'QUERYEXP' if QUERYEXP else 'NO QUERYEXP'} ############### {'STEMMING' if STEMMING else 'NO STEMMING'} ############### {'COSSIM' if COSSIM else 'BM25'}")
+
+    clac_score = Counter()
 
     if STEMMING:
         inverted_index = inverted_index_body_stemmed
@@ -101,15 +111,66 @@ def search():
         inverted_index_folder_url = POSTINGS_GCP_TEXT_INDEX_FOLDER_URL
 
     if COSSIM:
-        sorted_doc_score_pairs = cossim(tokens, inverted_index, inverted_index_folder_url, DL, DL_LEN, NF)
+        sorted_doc_text_score_pairs = cossim(tokens, inverted_index, inverted_index_folder_url, DL, DL_LEN, NF)[:500]
     else:
-        sorted_doc_score_pairs = BM25(tokens, K, B, AVGDL, inverted_index, inverted_index_folder_url, DL, DL_LEN)
+        sorted_doc_text_score_pairs = BM25(tokens, K, B, AVGDL, inverted_index, inverted_index_folder_url, DL, DL_LEN)[:500]
     
+    max_value_score = sorted_doc_text_score_pairs[0][1]
+    sorted_doc_text_score_pairs_norm = [(x[0], x[1]/max_value_score) for x in sorted_doc_text_score_pairs]
+
+    sorted_doc_title_score_pairs = get_binary_score(tokens, inverted_index_title, POSTINGS_GCP_TITLE_INDEX_FOLDER_URL)[:500]
+    sorted_doc_title_score_pairs_norm = [(x[0], x[1]/len(tokens)) for x in sorted_doc_title_score_pairs]
+
+    sorted_doc_anchor_score_pairs = get_binary_score(tokens, inverted_index_anchor, POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL)[:500]
+    sorted_doc_anchor_score_pairs_norm = [(x[0], x[1]/len(tokens)) for x in sorted_doc_anchor_score_pairs]
+
+    for doc_id, score in sorted_doc_text_score_pairs_norm:
+        if doc_id in clac_score:
+            clac_score[doc_id] += score*Wb
+        else:
+            clac_score[doc_id] = score*Wb
+
+    for doc_id, score in sorted_doc_title_score_pairs_norm:
+        if doc_id in clac_score:
+            clac_score[doc_id] += score*Wt
+        else:
+            clac_score[doc_id] = score*Wt
+    
+    for doc_id, score in sorted_doc_anchor_score_pairs_norm:
+        if doc_id in clac_score:
+            clac_score[doc_id] += score*Wa
+        else:
+            clac_score[doc_id] = score*Wa
+    
+    # add page view
+    for page_id in clac_score:
+        try:
+            if page_view[page_id] > 1:
+                clac_score[page_id] += math.log(page_view[page_id], 2)
+        except:
+            pass  
+
+    # add page rank
+    for page_id in clac_score:
+        try:
+            if page_rank[page_id] > 1:
+                clac_score[page_id] += math.log(page_rank[page_id], 10)
+        except:
+            pass  
+
+    sorted_clac_score = clac_score.most_common()
+
     # take first 100 
-    best = sorted_doc_score_pairs[:100]
+    best = sorted_clac_score[:100]
+    print(best)
 
     # take page titles according to id
-    res = [(x[0], DT[x[0]]) for x in best]
+    for doc_id, _ in best:
+        try:
+            res.append((doc_id, DT[doc_id]))
+        except:
+            pass       
+    
     return jsonify(res)
 
 @app.route("/search_body")
