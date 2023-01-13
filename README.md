@@ -30,6 +30,11 @@ We used all course's theory in order to develop our search engine:
     - ***Recall:*** number of relevant documents for given query that retrived, divide by all relevant documents.
     - ***Map@40:*** # Add explain about Map@40.
 
+---
+
+>### Our training values are:
+> <img src="images/dataset_training_values.png" width="400"/>
+
  ---
 ## Data structures:
 We used the following data structures in order to make the claculations faster:
