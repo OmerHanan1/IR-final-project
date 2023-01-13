@@ -47,12 +47,21 @@ And the following Inverted Inexes to achive fast retrieval:
 ---
 ## System components (API endpoints):
 ### Serach / main route:
-Returns up to a 100 of your best search results for the query. This is 
-the place to put forward your best search engine, and you are free to
-implement the retrieval whoever you'd like within the bound of the 
-project requirements (efficiency, quality, etc.). That means it is up to
-you to decide on whether to use stemming, remove stopwords, use 
-PageRank, query expansion, etc.
+Returns up to a 100 of the best search results for the given query. \
+This is the place which we put forward our best search engine, \
+We have a free hand to implement it as we like, within the bound of the 
+project requirements (efficiency, quality, etc.). \
+We ecided to remove stopwords (english stopwords & corpus stopwords), to perform stemming over the corpus, to expand queries with Query Expansion method based on WordNet, create Inverted Indexes to all document component (as described above) and to inspect simularity using BM25 measure with optimal K,b values.
+We created a `score` function, that takes the values from the following functions:
+1. Title- binary function.
+2. Body- BM25 based simularity.
+3. Anchor- accumulating function (different from the one will describe at the search_anchor route)
+4. PageRank- authority measure of a page.
+5. PageView- popularity measure of a page based on views.
+
+And set weighs to every function. for example:
+Score = ( (A * Title)  + (B * Body) + (C * Anchor) + (D * PageRank) + (E * PageView))
+For determine the values of A,B,C,D,E we used `scipy` models.
 
 To issue a query navigate to a URL like:
     http://YOUR_SERVER_DOMAIN/search?query=hello+world
