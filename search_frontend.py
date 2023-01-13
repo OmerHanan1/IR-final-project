@@ -1,9 +1,7 @@
 from flask import Flask, request, jsonify, render_template
 import gzip
-import math
 import pandas as pd
 import pickle
-from collections import Counter
 from inverted_index_gcp import *
 from frontend_utils import *
 
@@ -11,8 +9,11 @@ INDEX_FILE = "index"
 POSTINGS_GCP_TEXT_INDEX_FOLDER_URL = "postings_gcp_text"
 POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL = "postings_gcp_anchor"
 POSTINGS_GCP_TITLE_INDEX_FOLDER_URL = "postings_gcp_title"
-PAGE_RANK_URL = "pr/pr_part-00000-8b293cd5-fd79-47e7-a641-3d067da0c2b0-c000.csv.gz"
-PAGE_VIEW_URL = "pv/pageview_pageviews-202108-user.pkl"
+POSTINGS_GCP_TEXT_STEMMED_INDEX_FOLDER_URL = "postings_gcp_text_stemmed"
+POSTINGS_GCP_ANCHOR_STEMMED_INDEX_FOLDER_URL = "postings_gcp_anchor_stemmed"
+POSTINGS_GCP_TITLE_STEMMED_INDEX_FOLDER_URL = "postings_gcp_title_stemmed"
+PAGE_RANK_URL = "pr/pr.csv.gz"
+PAGE_VIEW_URL = "pv/pv.pkl"
 DT_PATH = "dt/dt.pkl"
 DL_PATH = "dl/dl.pkl"
 NF_PATH = "nf/nf.pkl"
@@ -22,6 +23,9 @@ NF_PATH = "nf/nf.pkl"
 inverted_index_body = InvertedIndex.read_index(POSTINGS_GCP_TEXT_INDEX_FOLDER_URL, INDEX_FILE)
 inverted_index_anchor = InvertedIndex.read_index(POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL, INDEX_FILE)
 inverted_index_title = InvertedIndex.read_index(POSTINGS_GCP_TITLE_INDEX_FOLDER_URL, INDEX_FILE)
+inverted_index_body_stemmed = InvertedIndex.read_index(POSTINGS_GCP_TEXT_STEMMED_INDEX_FOLDER_URL, INDEX_FILE)
+inverted_index_anchor_stemmed = InvertedIndex.read_index(POSTINGS_GCP_ANCHOR_STEMMED_INDEX_FOLDER_URL, INDEX_FILE)
+inverted_index_title_stemmed = InvertedIndex.read_index(POSTINGS_GCP_TITLE_STEMMED_INDEX_FOLDER_URL, INDEX_FILE)
 
 with open(DL_PATH, 'rb') as f:
     DL = pickle.load(f)
@@ -33,13 +37,13 @@ with open(DT_PATH, 'rb') as f:
 with open(NF_PATH, 'rb') as f:
     NF = pickle.load(f)
 
-# with open(PAGE_VIEW_URL, 'rb') as f:
-#     page_view = pickle.load(f)
+with open(PAGE_VIEW_URL, 'rb') as f:
+    page_view = pickle.load(f)
 
-# with gzip.open(PAGE_RANK_URL) as f:
-#     page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
-#     max_pr_value = max(page_rank.values())
-#     page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
+with gzip.open(PAGE_RANK_URL) as f:
+    page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
+    max_pr_value = max(page_rank.values())
+    page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
 
 # flask app
 class MyFlaskApp(Flask):
@@ -77,9 +81,24 @@ def search():
     query = request.args.get('query', '')
     if len(query) == 0:
       return jsonify(res)
-    # BEGIN SOLUTION
-    res.append("AMIR")
-    # END SOLUTION
+    # tokenizing the query
+    tokens = tokenize(query)
+
+    # cossim without stemming
+    sorted_doc_score_pairs = cossim(tokens, inverted_index_body, POSTINGS_GCP_TEXT_INDEX_FOLDER_URL, DL, DL_LEN, NF)
+    
+    # BM25
+    # K = ?
+    # B = ?
+    # AVGDL = 341.0890174848911
+    # sorted_doc_score_pairs = BM25(query, K, B, AVGDL, inverted_index_body, POSTINGS_GCP_TEXT_INDEX_FOLDER_URL, DL, DL_LEN)
+
+    # take first 100 
+    best = sorted_doc_score_pairs[:100]
+    print(best)
+
+    # take page titles according to id
+    res = [(x[0], DT[x[0]]) for x in best]
     return jsonify(res)
 
 @app.route("/search_body")
@@ -106,49 +125,15 @@ def search_body():
     # tokenizing the query
     tokens = tokenize(query)
 
-    # get tf of each token in query
-    query_freq = Counter(tokens)
-
-    numerator = Counter()
-    query_denominator = 0
-    weight_token_query = 0
-
-    query_len = len(tokens)
-    for token in tokens:
-
-        # calc idf for specific token
-        try:
-          token_df = inverted_index_body.df[token]
-        except:
-            continue
-        token_idf = math.log(DL_LEN/token_df,10)
-
-        # calc query_token_tf
-        tf_of_query_token = query_freq[token]/query_len
-        weight_token_query = tf_of_query_token*token_idf
-        query_denominator += math.pow(weight_token_query ,2)
-
-        # loading posting list with (word, (doc_id, tf))
-        posting_list = inverted_index_body.read_posting_list(token, POSTINGS_GCP_TEXT_INDEX_FOLDER_URL)
-        for page_id, word_freq in posting_list:
-            #normalized tf (by the length of document)
-            try:
-                tf = (word_freq/DL[page_id])
-                weight_word_page = tf*token_idf
-                numerator[page_id] += weight_word_page*weight_token_query
-            except:
-                pass
-
-    cosim = Counter()
-    for page_id in numerator.keys():
-      cosim[page_id] = numerator[page_id]/((math.sqrt(query_denominator)*NF[page_id]))
-    sorted_cosim = cosim.most_common()
-
-    # take first 100 
-    best = sorted_cosim[:100]
+    # cossim
+    sorted_doc_score_pairs = cossim(tokens, inverted_index_body, POSTINGS_GCP_TEXT_INDEX_FOLDER_URL, DL, DL_LEN, NF)
     
+    # take first 100 
+    best = sorted_doc_score_pairs[:100]
+    print(best)
+
     # take page titles according to id
-    res = [(x[0], DT[x[0]]) for x in best]    
+    res = [(x[0], DT[x[0]]) for x in best]
 
     return jsonify(res)
 
@@ -231,8 +216,12 @@ def search_anchor():
                 tf_dict[doc_id] = 1
 
     list_of_docs = sorted([(doc_id, score) for doc_id, score in tf_dict.items()], key=lambda x: x[1], reverse=True)
-    res = [(doc_id, DT[doc_id]) for doc_id, score in list_of_docs]
-    
+    for doc_id, score in list_of_docs:
+        try:
+            res.append((doc_id, DT[doc_id]))
+        except:
+            pass   
+
     return jsonify(res)
 
 
@@ -256,9 +245,13 @@ def get_pagerank():
     wiki_ids = request.get_json()
     if len(wiki_ids) == 0:
       return jsonify(res)
-    # BEGIN SOLUTION
-    res = [page_rank[wiki_id] for wiki_id in wiki_ids] 
-    # END SOLUTION
+
+    for wiki_id in wiki_ids:
+      try:
+        res.append(page_rank[wiki_id])
+      except:
+        res.append(None)
+
     return jsonify(res)
 
 @app.route("/get_pageview", methods=['POST'])
@@ -283,17 +276,13 @@ def get_pageview():
     wiki_ids = request.get_json()
     if len(wiki_ids) == 0:
       return jsonify(res)
-    # BEGIN SOLUTION
-    try:
-        res = list(map(lambda x: (page_view[x]), wiki_ids))
-    except:
-        res = []
-        for pageID in wiki_ids:
-            try:
-                res.append(page_view[pageID])
-            except:
-                res.append(0) 
-    # END SOLUTION
+
+    for wiki_id in wiki_ids:
+      try:
+        res.append(page_rank[wiki_id])
+      except:
+        res.append(None)
+
     return jsonify(res)
 
 
