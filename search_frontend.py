@@ -83,15 +83,18 @@ def search():
       return jsonify(res)
 
     # const bool  
+    QUERYEXP = False 
     STEMMING = True
-    COSSIM = True
+    COSSIM = False
 
     K = 1.2
     B = 0.75
     AVGDL = 341.0890174848911
 
     # tokenizing the query
-    tokens = tokenize(query, STEMMING)
+    tokens = tokenize(query, STEMMING, QUERYEXP)
+    
+    print(f"{'QUERYEXP' if QUERYEXP else 'NO QUERYEXP'} ############### {'STEMMING' if STEMMING else 'NO STEMMING'} ############### {'COSSIM' if COSSIM else 'BM25'}")
 
     if STEMMING:
         inverted_index = inverted_index_body_stemmed

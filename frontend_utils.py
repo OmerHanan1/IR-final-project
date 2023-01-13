@@ -40,7 +40,7 @@ def query_expansion(query):
 
     return query
 
-def tokenize(text, STEMMING=False):
+def tokenize(text, STEMMING=False, QUERYEXP=False):
     RE_WORD = re.compile(r"""[\#\@\w](['\-]?[\w,]?[\w.]?(?:['\-]?[\w,]?[\w])){0,24}""", re.UNICODE)
     english_stopwords = frozenset(stopwords.words('english'))
     corpus_stopwords = ["category", "references", "also", "external", "links",
@@ -52,8 +52,9 @@ def tokenize(text, STEMMING=False):
 
     tokens = [token.group() for token in RE_WORD.finditer(text.lower())]
 
-    tokens = query_expansion(tokens)
-
+    if QUERYEXP:
+        tokens = query_expansion(tokens)
+        
     if STEMMING:
         stemmer = PorterStemmer()
         list_of_tokens = [stemmer.stem(x) for x in tokens if x not in all_stopwords]
