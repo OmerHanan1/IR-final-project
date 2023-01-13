@@ -6,37 +6,46 @@ from nltk.corpus import stopwords
 from nltk.corpus import wordnet
 
 def query_expansion(query):
-
     synonyms = {}
     hyponyms = {}
-    
+    processed_words = set()
+    word_synsets = {}
     for word in query:
-        word_synsets = wordnet.synsets(word)
-        for synset in word_synsets:
+        if word in processed_words:
+            continue
+        if word not in word_synsets:
+            word_synsets[word] = wordnet.synsets(word)
+        for synset in word_synsets[word]:
             syn = synset.lemmas()[0].name().lower()
             if syn and syn != word:
-                synonyms[word] = syn
-                break
+                if word not in synonyms:
+                    synonyms[word] = []
+                synonyms[word].append(syn)
+        processed_words.add(word)
 
     for word in query:
-        word_synsets = wordnet.synsets(word)
-        for synset in word_synsets:
+        if word in processed_words:
+            continue
+        if word not in word_synsets:
+            word_synsets[word] = wordnet.synsets(word)
+        for synset in word_synsets[word]:
             try:
                 hyp = synset.hyponyms()[0].name()
                 word_synset = wordnet.synset(hyp)
                 hypernyms = word_synset.hypernyms()
-                lst = ([synset.name().split(".")[0] for synset in hypernyms])
-                h = lst[0].lower()
-                if h != word:
-                    hyponyms[word] = h
-            except:
+                lst = (synset.name().split(".")[0].lower() for synset in hypernyms)
+                for h in lst:
+                    if h != word:
+                        if word not in hyponyms:
+                            hyponyms[word] = []
+                        hyponyms[word].append(h)
+            except IndexError:
                 pass
+        processed_words.add(word)
     for key, val in synonyms.items():
-        if val not in query:
-            query.append(val)
+        query.extend([v for v in val if v not in query])
     for key, val in hyponyms.items():
-        if val not in query:
-            query.append(val)
+        query.extend([v for v in val if v not in query])
 
     return query
 
