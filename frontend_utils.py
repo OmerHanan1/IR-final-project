@@ -150,3 +150,19 @@ def get_binary_score(tokens, inverted_index, index_folder_url):
 
     list_of_docs = sorted([(doc_id, score) for doc_id, score in tf_dict.items()], key=lambda x: x[1], reverse=True)   
     return list_of_docs
+
+def get_anchor_rank_helper(tokens, inverted_index, index_folder_url):
+    ''' The function calculates the anchor rank for a given token and returns a list of tuples (doc_id, anchor_rank)
+        The list is sorted by anchor_rank in descending order.
+    '''
+    posting_lists = inverted_index.get_posting_lists(tokens, index_folder_url)
+
+    tf_dict = {}
+    for doc_id, anchor_rank in posting_lists:
+        if doc_id in tf_dict:
+            tf_dict[doc_id] += anchor_rank
+        else:
+            tf_dict[doc_id] = anchor_rank
+
+    list_of_docs = sorted([(doc_id, score) for doc_id, score in tf_dict.items()], key=lambda x: x[1], reverse=True)   
+    return list_of_docs
