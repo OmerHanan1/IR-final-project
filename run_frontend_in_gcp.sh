@@ -1,4 +1,4 @@
-INSTANCE_NAME="cluster-e7c9"
+INSTANCE_NAME="amit-omer-project-ir"
 REGION=us-central1
 ZONE=us-central1-a
 PROJECT_ID="assignment3-370517"
@@ -19,7 +19,7 @@ gcloud compute addresses create $IP_NAME --project=$PROJECT_ID --region=$REGION
 gcloud compute addresses list
 # note the IP address printed above, that's your extrenal IP address.
 # Enter it here: 
-INSTANCE_IP=""
+INSTANCE_IP="34.172.63.48"
 
 # 2. Create Firewall rule to allow traffic to port 8080 on the instance
 gcloud compute firewall-rules create default-allow-http-8080 \
@@ -34,6 +34,7 @@ gcloud compute instances create $INSTANCE_NAME \
   --machine-type=e2-highmem-16 \
   --network-interface=address=$INSTANCE_IP,network-tier=PREMIUM,subnet=default \
   --metadata-from-file startup-script=startup_script_gcp.sh \
+  --create-disk=auto-delete=yes,boot=yes,device-name=instance-1,image=projects/debian-cloud/global/images/debian-11-bullseye-v20221206,mode=rw,size=100,type=projects/assignment3-370517/zones/us-west4-b/diskTypes/pd-balanced \
   --scopes=https://www.googleapis.com/auth/cloud-platform \
   --tags=http-server
 # monitor instance creation log using this command. When done (4-5 minutes) terminate using Ctrl+C
