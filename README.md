@@ -102,11 +102,11 @@ For example, a document with a anchor text that matches two of the
 query words will be ranked before a document with anchor text that 
 matches only one query term. 
 
-### [POST] PageRank (authority value):
+### PageRank (authority value):
 Route instruction: </br>
 Returns PageRank values for a list of provided wiki article IDs.
 
-### [POST] PageView (views):
+### PageView (views):
 Route instruction: </br>
 Returns the number of page views that each of the provide wiki articles
 had in August 2021.
