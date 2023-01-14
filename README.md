@@ -35,7 +35,7 @@ We used all course's theory in order to develop our search engine:
 ---
 
 >### Our training values are:
-> <img src="images/dataset_training_values.png" width="400"/>
+> <img src="images/dataset.png" width="400"/>
 
  ---
 ## Data structures:
