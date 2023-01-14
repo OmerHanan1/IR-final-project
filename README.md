@@ -86,14 +86,14 @@ DO NOT use stemming. DO USE tokenizer and remove stopwords.
 </br>
 Since the document vector length can be calculated in the preprocess (do not depend on the query), we calculated it, and store the values in `NF dictionary` as described in the ***Data Structures*** part.
 
-### Search title:
+### Search_title:
 Route instruction: </br>
 Returns ALL (not just top 100) search results that contain A QUERY WORD 
 IN THE TITLE of articles, \
 ordered in descending order of the NUMBER OF QUERY WORDS that appear in the title. \
 For example, a document with a title that matches two of the query words will be ranked before a document with a title that matches only one query term.
 
-### Search anchor:
+### Search_anchor:
 Route instruction: </br>
 Returns ALL (not just top 100) search results that contain A QUERY WORD 
 IN THE ANCHOR TEXT of articles, ordered in descending order of the 
@@ -102,11 +102,11 @@ For example, a document with a anchor text that matches two of the
 query words will be ranked before a document with anchor text that 
 matches only one query term. 
 
-### PageRank (authority value):
+### get_PageRank (authority value):
 Route instruction: </br>
 Returns PageRank values for a list of provided wiki article IDs.
 
-### PageView (views):
+### get_PageView (views):
 Route instruction: </br>
 Returns the number of page views that each of the provide wiki articles
 had in August 2021.
