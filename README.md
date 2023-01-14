@@ -30,7 +30,7 @@ We used all course's theory in order to develop our search engine:
 4. <b>Evaluation-</b> The course staff provide us with labled benchmark as test dataset for tesing and evaluation. The evaluation metrics we used are:
     - ***Precision:*** number of relevant documents for given query that retrived, divide by number of retrived documents.
     - ***Recall:*** number of relevant documents for given query that retrived, divide by all relevant documents.
-    - ***Map@40:*** # Add explain about Map@40.
+    - ***Map@40:*** Find the avg precision for a given query, averaging the averages for a benchmark query set.
 
 ---
 
