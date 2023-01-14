@@ -17,6 +17,8 @@ We used all course's theory in order to develop our search engine:
     - created ***Inverted Index*** to Each component.
 
 2. <b>Query Expansion-</b> After trying GloVe (Global Vectors for Word Representation), Word2Vec and WordNet, we decided to use WordNet to perform Query Expansion since this is the fastest approach and it gives pretty good ampiric results. We used 1 best sysnonym and 1 best hypernym (if exists) to every word.</br> For example- searching for tokenized query ["Marijuana"] will expand to ["Marijuana","Cannabis"].
+    - [Link to Word2Vec model](https://github.com/jind11/word2vec-on-wikipedia.git) </br>
+    - [Link to WordNet for Python](https://www.nltk.org/howto/wordnet.html)
 
 3. <b>Search</b> throught the data. After preprocessing the data we used a simularity measures to determine the simularity between a given query to the engine and a candidate document, using the inverted index. Each document component have it own ranking method, depend on the component content and values.
     - ***Title:*** binary ranking method.
