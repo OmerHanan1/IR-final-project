@@ -5,45 +5,68 @@ import pickle
 from inverted_index_gcp import *
 from frontend_utils import *
 
-INDEX_FILE = "index"
-POSTINGS_GCP_TEXT_INDEX_FOLDER_URL = "postings_gcp_text"
-POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL = "postings_gcp_anchor"
-POSTINGS_GCP_TITLE_INDEX_FOLDER_URL = "postings_gcp_title"
-POSTINGS_GCP_TEXT_STEMMED_INDEX_FOLDER_URL = "postings_gcp_text_stemmed"
-POSTINGS_GCP_ANCHOR_STEMMED_INDEX_FOLDER_URL = "postings_gcp_anchor_stemmed"
-POSTINGS_GCP_TITLE_STEMMED_INDEX_FOLDER_URL = "postings_gcp_title_stemmed"
-PAGE_RANK_URL = "pr/pr.csv.gz"
-PAGE_VIEW_URL = "pv/pv.pkl"
-DT_PATH = "dt/dt.pkl"
+
+INVERTED_INDEX_FILE_NAME = "index"
+
+POSTINGS_TEXT_OLD_FOLDER_URL = "postings_gcp_text_old"
+POSTINGS_ANCHOR_OLD_FOLDER_URL = "postings_gcp_anchor_old"
+POSTINGS_TITLE_OLD_FOLDER_URL = "postings_gcp_title_old"
+OLD_DL_PATH = "old_dl/dl.pkl"
+OLD_NF_PATH = "old_nf/nf.pkl"
+
+POSTINGS_TEXT_FOLDER_URL = "postings_gcp_text"
+POSTINGS_ANCHOR_FOLDER_URL = "postings_gcp_anchor"
+POSTINGS_TITLE_FOLDER_URL = "postings_gcp_title"
+POSTINGS_TEXT_STEMMED_FOLDER_URL = "postings_gcp_text_stemmed"
+POSTINGS_ANCHOR_STEMMED_FOLDER_URL = "postings_gcp_anchor_stemmed"
+POSTINGS_TITLE_STEMMED_FOLDER_URL = "postings_gcp_title_stemmed"
 DL_PATH = "dl/dl.pkl"
 NF_PATH = "nf/nf.pkl"
 
+PAGE_RANK_URL = "pr/part-00000-8b293cd5-fd79-47e7-a641-3d067da0c2b0-c000.csv.gz"
+PAGE_VIEW_URL = "pv/pageview_pageviews-202108-user.pkl"
+DT_PATH = "dt/dt.pkl"
+
 
 # open files (inverted indexes etc...)
-inverted_index_body = InvertedIndex.read_index(POSTINGS_GCP_TEXT_INDEX_FOLDER_URL, INDEX_FILE)
-inverted_index_anchor = InvertedIndex.read_index(POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL, INDEX_FILE)
-inverted_index_title = InvertedIndex.read_index(POSTINGS_GCP_TITLE_INDEX_FOLDER_URL, INDEX_FILE)
-inverted_index_body_stemmed = InvertedIndex.read_index(POSTINGS_GCP_TEXT_STEMMED_INDEX_FOLDER_URL, INDEX_FILE)
-inverted_index_anchor_stemmed = InvertedIndex.read_index(POSTINGS_GCP_ANCHOR_STEMMED_INDEX_FOLDER_URL, INDEX_FILE)
-inverted_index_title_stemmed = InvertedIndex.read_index(POSTINGS_GCP_TITLE_STEMMED_INDEX_FOLDER_URL, INDEX_FILE)
+inverted_index_body_old = InvertedIndex.read_index(POSTINGS_TEXT_OLD_FOLDER_URL, INVERTED_INDEX_FILE_NAME)
+inverted_index_anchor_old = InvertedIndex.read_index(POSTINGS_ANCHOR_OLD_FOLDER_URL, INVERTED_INDEX_FILE_NAME)
+inverted_index_title_old = InvertedIndex.read_index(POSTINGS_TITLE_OLD_FOLDER_URL, INVERTED_INDEX_FILE_NAME)
+
+inverted_index_body = InvertedIndex.read_index(POSTINGS_TEXT_FOLDER_URL, INVERTED_INDEX_FILE_NAME)
+inverted_index_anchor = InvertedIndex.read_index(POSTINGS_ANCHOR_FOLDER_URL, INVERTED_INDEX_FILE_NAME)
+inverted_index_title = InvertedIndex.read_index(POSTINGS_TITLE_FOLDER_URL, INVERTED_INDEX_FILE_NAME)
+
+inverted_index_body_stemmed = InvertedIndex.read_index(POSTINGS_TEXT_STEMMED_FOLDER_URL, INVERTED_INDEX_FILE_NAME)
+inverted_index_anchor_stemmed = InvertedIndex.read_index(POSTINGS_ANCHOR_STEMMED_FOLDER_URL, INVERTED_INDEX_FILE_NAME)
+inverted_index_title_stemmed = InvertedIndex.read_index(POSTINGS_TITLE_STEMMED_FOLDER_URL, INVERTED_INDEX_FILE_NAME)
 
 with open(DL_PATH, 'rb') as f:
     DL = pickle.load(f)
     DL_LEN = len(DL)
 
-with open(DT_PATH, 'rb') as f:
-    DT = pickle.load(f)
+with open(OLD_DL_PATH, 'rb') as f:
+    OLD_DL = pickle.load(f)
+    OLD_DL_LEN = len(DL)
 
 with open(NF_PATH, 'rb') as f:
     NF = pickle.load(f)
 
+with open(OLD_NF_PATH, 'rb') as f:
+    OLD_NF = pickle.load(f)
+
+with open(DT_PATH, 'rb') as f:
+    DT = pickle.load(f)
+
 with open(PAGE_VIEW_URL, 'rb') as f:
     page_view = pickle.load(f)
-    # math_log10
+    max_pv_value = max(page_view.values())
+    page_view = {doc_id: view/max_pv_value for doc_id, view in page_view.items()}
 
 with gzip.open(PAGE_RANK_URL) as f:
     page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
-    # math_log2
+    max_pr_value = max(page_rank.values())
+    page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
 
 # flask app
 class MyFlaskApp(Flask):
@@ -58,6 +81,7 @@ app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 #     return render_template('banana.html')
 def show_shmoogle():
     return render_template('shmoogle.html')
+
 
 @app.route("/search")
 def search():
@@ -90,11 +114,11 @@ def search():
     K = 1.2
     B = 0.75
     AVGDL = 341.0890174848911
-    Wa = 0
-    Wb = 0.5
+    Wa = 0.3
+    Wb = 0.2
     Wt = 0.1
-    Wpv = 0.4
-    Wpr = 0
+    Wpv = 0.2
+    Wpr = 0.2
 
     # tokenizing the query
     tokens = tokenize(query, STEMMING, QUERYEXP)
@@ -104,25 +128,34 @@ def search():
     clac_score = Counter()
 
     if STEMMING:
-        inverted_index = inverted_index_body_stemmed
-        inverted_index_folder_url = POSTINGS_GCP_TEXT_STEMMED_INDEX_FOLDER_URL
+        inverted_index_b = inverted_index_body_stemmed
+        inverted_index_t = inverted_index_title_stemmed
+        inverted_index_a = inverted_index_anchor_stemmed
+        inverted_index_b_folder_url = POSTINGS_TEXT_STEMMED_FOLDER_URL
+        inverted_index_t_folder_url = POSTINGS_TITLE_STEMMED_FOLDER_URL
+        inverted_index_a_folder_url = POSTINGS_ANCHOR_STEMMED_FOLDER_URL
     else:
-        inverted_index = inverted_index_body
-        inverted_index_folder_url = POSTINGS_GCP_TEXT_INDEX_FOLDER_URL
+        inverted_index_b = inverted_index_body
+        inverted_index_t = inverted_index_title
+        inverted_index_a = inverted_index_anchor
+        inverted_index_b_folder_url = POSTINGS_TEXT_FOLDER_URL
+        inverted_index_t_folder_url = POSTINGS_TEXT_FOLDER_URL
+        inverted_index_a_folder_url = POSTINGS_TEXT_FOLDER_URL
 
     if COSSIM:
-        sorted_doc_text_score_pairs = cossim(tokens, inverted_index, inverted_index_folder_url, DL, DL_LEN, NF)[:500]
+        sorted_doc_text_score_pairs = cossim(tokens, inverted_index_b, inverted_index_b_folder_url, DL, DL_LEN, NF)[:500]
     else:
-        sorted_doc_text_score_pairs = BM25(tokens, K, B, AVGDL, inverted_index, inverted_index_folder_url, DL, DL_LEN)[:500]
+        sorted_doc_text_score_pairs = BM25(tokens, K, B, AVGDL, inverted_index_b, inverted_index_b_folder_url, DL, DL_LEN)[:500]
     
-    max_value_score = sorted_doc_text_score_pairs[0][1]
-    sorted_doc_text_score_pairs_norm = [(x[0], x[1]/max_value_score) for x in sorted_doc_text_score_pairs]
+    max_value_score_body = sorted_doc_text_score_pairs[0][1]
+    sorted_doc_text_score_pairs_norm = [(x[0], x[1]/max_value_score_body) for x in sorted_doc_text_score_pairs]
 
-    sorted_doc_title_score_pairs = get_binary_score(tokens, inverted_index_title, POSTINGS_GCP_TITLE_INDEX_FOLDER_URL)[:500]
+    sorted_doc_title_score_pairs = get_binary_score(tokens, inverted_index_t, inverted_index_t_folder_url)[:500]
     sorted_doc_title_score_pairs_norm = [(x[0], x[1]/len(tokens)) for x in sorted_doc_title_score_pairs]
 
-    sorted_doc_anchor_score_pairs = get_binary_score(tokens, inverted_index_anchor, POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL)[:500]
-    sorted_doc_anchor_score_pairs_norm = [(x[0], x[1]/len(tokens)) for x in sorted_doc_anchor_score_pairs]
+    sorted_doc_anchor_score_pairs = get_power_score(tokens, inverted_index_a, inverted_index_a_folder_url)[:500]
+    max_value_score_anchor = sorted_doc_anchor_score_pairs[0][1]
+    sorted_doc_anchor_score_pairs_norm = [(x[0], x[1]/max_value_score_anchor) for x in sorted_doc_anchor_score_pairs]
 
     for doc_id, score in sorted_doc_text_score_pairs_norm:
         if doc_id in clac_score:
@@ -145,16 +178,14 @@ def search():
     # add page view
     for page_id in clac_score:
         try:
-            if page_view[page_id] > 1:
-                clac_score[page_id] += math.log(page_view[page_id], 2)
+            clac_score[page_id] += page_view[page_id]*Wpv
         except:
             pass  
 
     # add page rank
     for page_id in clac_score:
         try:
-            if page_rank[page_id] > 1:
-                clac_score[page_id] += math.log(page_rank[page_id], 10)
+            clac_score[page_id] += page_rank[page_id]*Wpr
         except:
             pass  
 
@@ -172,6 +203,7 @@ def search():
             pass       
     
     return jsonify(res)
+
 
 @app.route("/search_body")
 def search_body():
@@ -195,10 +227,10 @@ def search_body():
       return jsonify(res)
 
     # tokenizing the query
-    tokens = tokenize(query)
+    tokens = old_tokenize(query)
 
     # cossim
-    sorted_doc_score_pairs = cossim(tokens, inverted_index_body, POSTINGS_GCP_TEXT_INDEX_FOLDER_URL, DL, DL_LEN, NF)
+    sorted_doc_score_pairs = cossim(tokens, inverted_index_body_old, POSTINGS_TEXT_FOLDER_URL, OLD_DL, OLD_DL_LEN, OLD_NF)
     
     # take first 100 
     best = sorted_doc_score_pairs[:100]
@@ -207,6 +239,7 @@ def search_body():
     res = [(x[0], DT[x[0]]) for x in best]
 
     return jsonify(res)
+
 
 @app.route("/search_title")
 def search_title():
@@ -231,10 +264,10 @@ def search_title():
       return jsonify(res)
 
     # tokenizing
-    tokens = tokenize(query)
+    tokens = old_tokenize(query)
 
     # get number of query tokens in doc_title
-    list_of_docs = get_binary_score(tokens, inverted_index_title, POSTINGS_GCP_TITLE_INDEX_FOLDER_URL)
+    list_of_docs = get_binary_score(tokens, inverted_index_title_old, POSTINGS_TITLE_FOLDER_URL)
 
     # generate doc_title for each doc_id
     for doc_id, _ in list_of_docs:
@@ -244,6 +277,7 @@ def search_title():
             pass   
     
     return jsonify(res)
+
 
 @app.route("/search_anchor")
 def search_anchor():
@@ -269,10 +303,10 @@ def search_anchor():
       return jsonify(res)
 
     # tokenizing
-    tokens = tokenize(query)
+    tokens = old_tokenize(query)
 
     # get number of query tokens in doc_anchor_text
-    list_of_docs = get_binary_score(tokens, inverted_index_anchor, POSTINGS_GCP_ANCHOR_INDEX_FOLDER_URL)
+    list_of_docs = get_binary_score(tokens, inverted_index_anchor_old, POSTINGS_ANCHOR_FOLDER_URL)
 
     # generate doc_title for each doc_id
     for doc_id, _ in list_of_docs:
@@ -312,6 +346,7 @@ def get_pagerank():
         res.append(None)
 
     return jsonify(res)
+
 
 @app.route("/get_pageview", methods=['POST'])
 def get_pageview():
