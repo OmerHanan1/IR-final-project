@@ -370,7 +370,7 @@ def get_pageview():
 
     for wiki_id in wiki_ids:
       try:
-        res.append(page_rank[wiki_id])
+        res.append(page_view[wiki_id])
       except:
         res.append(None)
 
