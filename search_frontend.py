@@ -60,12 +60,12 @@ with open(DT_PATH, 'rb') as f:
 with open(PAGE_VIEW_URL, 'rb') as f:
     page_view = pickle.load(f)
     max_pv_value = max(page_view.values())
-    page_view = {doc_id: view/max_pv_value for doc_id, view in page_view.items()}
+    norm_page_view = {doc_id: view/max_pv_value for doc_id, view in page_view.items()}
 
 with gzip.open(PAGE_RANK_URL) as f:
     page_rank = pd.read_csv(f, header=None, index_col=0).squeeze("columns").to_dict()
     max_pr_value = max(page_rank.values())
-    page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
+    norm_page_rank = {doc_id: rank/max_pr_value for doc_id, rank in page_rank.items()}
 
 # flask app
 class MyFlaskApp(Flask):
@@ -176,14 +176,14 @@ def search():
     # add page view
     for page_id in clac_score:
         try:
-            clac_score[page_id] += page_view[page_id]*Wpv
+            clac_score[page_id] += norm_page_view[page_id]*Wpv
         except:
             pass  
 
     # add page rank
     for page_id in clac_score:
         try:
-            clac_score[page_id] += page_rank[page_id]*Wpr
+            clac_score[page_id] += norm_page_rank[page_id]*Wpr
         except:
             pass  
 
