@@ -112,10 +112,9 @@ def search():
     B = 0.75
     AVGDL = 341.0890174848911
     Wa = 0.95
+    Wb = 1.1
     if "?" in query:
-      Wb = 1.1*1.2
-    else:
-      Wb = 1.1
+      Wb = Wb*1.2
     Wt = 0.95
     Wpv = 1
     Wpr = 1
@@ -191,6 +190,15 @@ def search():
 
     # take first 100 
     best = sorted_clac_score[:100]
+
+    # clac std and mean 
+    xs = [x[1] for x in best]
+    mean = sum(xs) / len(xs)
+    var  = sum(pow(x-mean,2) for x in xs) / len(xs)
+    std  = math.sqrt(var)
+
+    # filter out resulta that are below (mean - 0.30*std)
+    best = [doc for doc in best if doc[1] > (mean - 0.30*std)]
 
     # take page titles according to id
     for doc_id, _ in best:
