@@ -5,7 +5,6 @@ import pickle
 from inverted_index_gcp import *
 from frontend_utils import *
 
-
 INVERTED_INDEX_FILE_NAME = "index"
 
 POSTINGS_TEXT_OLD_FOLDER_URL = "postings_gcp_text_old"
@@ -77,8 +76,6 @@ app = MyFlaskApp(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
 @app.route('/')
-# def show_banana():
-#     return render_template('banana.html')
 def show_shmoogle():
     return render_template('shmoogle.html')
 
@@ -126,8 +123,6 @@ def search():
     # tokenizing the query
     tokens = tokenize(query, STEMMING, QUERYEXP)
     
-    print(f"{'QUERYEXP' if QUERYEXP else 'NO QUERYEXP'} ############### {'STEMMING' if STEMMING else 'NO STEMMING'} ############### {'COSSIM' if COSSIM else 'BM25'}")
-
     clac_score = Counter()
 
     if STEMMING:
@@ -196,7 +191,6 @@ def search():
 
     # take first 100 
     best = sorted_clac_score[:100]
-    print(best)
 
     # take page titles according to id
     for doc_id, _ in best:
