@@ -37,6 +37,8 @@ We used all course's theory in order to develop our search engine:
 >### Our training values are:
 > <img src="images/dataset.png" width="400"/>
 
+> <img sc="images/performance.png" width="400"/>
+
  ---
 ## Data structures:
 We used the following data structures in order to make the claculations faster:
