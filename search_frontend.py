@@ -114,11 +114,14 @@ def search():
     K = 1.2
     B = 0.75
     AVGDL = 341.0890174848911
-    Wa = 0.3
-    Wb = 0.2
-    Wt = 0.1
-    Wpv = 0.2
-    Wpr = 0.2
+    Wa = 0.95
+    if "?" in query:
+      Wb = 1.1*1.2
+    else:
+      Wb = 1.1
+    Wt = 0.95
+    Wpv = 1
+    Wpr = 1
 
     # tokenizing the query
     tokens = tokenize(query, STEMMING, QUERYEXP)
@@ -230,7 +233,7 @@ def search_body():
     tokens = old_tokenize(query)
 
     # cossim
-    sorted_doc_score_pairs = cossim(tokens, inverted_index_body_old, POSTINGS_TEXT_FOLDER_URL, OLD_DL, OLD_DL_LEN, OLD_NF)
+    sorted_doc_score_pairs = cossim(tokens, inverted_index_body_old, POSTINGS_TEXT_OLD_FOLDER_URL, OLD_DL, OLD_DL_LEN, OLD_NF)
     
     # take first 100 
     best = sorted_doc_score_pairs[:100]
@@ -267,7 +270,7 @@ def search_title():
     tokens = old_tokenize(query)
 
     # get number of query tokens in doc_title
-    list_of_docs = get_binary_score(tokens, inverted_index_title_old, POSTINGS_TITLE_FOLDER_URL)
+    list_of_docs = get_binary_score(tokens, inverted_index_title_old, POSTINGS_TITLE_OLD_FOLDER_URL)
 
     # generate doc_title for each doc_id
     for doc_id, _ in list_of_docs:
@@ -306,7 +309,7 @@ def search_anchor():
     tokens = old_tokenize(query)
 
     # get number of query tokens in doc_anchor_text
-    list_of_docs = get_binary_score(tokens, inverted_index_anchor_old, POSTINGS_ANCHOR_FOLDER_URL)
+    list_of_docs = get_binary_score(tokens, inverted_index_anchor_old, POSTINGS_ANCHOR_OLD_FOLDER_URL)
 
     # generate doc_title for each doc_id
     for doc_id, _ in list_of_docs:
@@ -382,4 +385,4 @@ def get_pageview():
 
 if __name__ == '__main__':
     # run the Flask RESTful API, make the server publicly available (host='0.0.0.0') on port 8080
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    app.run(host='0.0.0.0', port=8080, debug=False)
