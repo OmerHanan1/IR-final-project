@@ -111,13 +111,19 @@ def search():
     K = 1.2
     B = 0.75
     AVGDL = 341.0890174848911
+    LIMIT_DOCS = 4
     Wa = 0.95
     Wb = 1.1
-    if "?" in query:
-      Wb = Wb*1.2
     Wt = 0.95
     Wpv = 1
     Wpr = 1
+    if "?" in query:
+      Wb = Wb*1.2
+      Wa = Wa*1.2
+      Wpv = Wpv*0.8
+      Wpr = Wpr*0.8
+      
+
 
     # tokenizing the query
     tokens = tokenize(query, STEMMING, QUERYEXP)
@@ -197,8 +203,8 @@ def search():
     var  = sum(pow(x-mean,2) for x in xs) / len(xs)
     std  = math.sqrt(var)
 
-    # filter out resulta that are below (mean - 0.30*std)
-    best = [doc for doc in best if doc[1] > (mean - 0.30*std)]
+    # filter out results that are below (mean + 1.15*std)
+    best = [best[i] for i in range(len(best)) if (best[i][1] > (mean + 1.15*std)) or (i < LIMIT_DOCS)]
 
     # take page titles according to id
     for doc_id, _ in best:
