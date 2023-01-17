@@ -36,9 +36,12 @@ We used all course's theory in order to develop our search engine:
 
 >### Our training values are:
 
-><img src="images/performance.png" width="400"/>
+> <img src="images/performance.png" width="400"/>
 > <img src="images/dataset.png" width="400"/>
+</br>
 
+Last precision rate, after setting the threshold:
+> <img src="images/lastprecision.png" width="400"/>
  ---
 ## Data structures:
 We used the following data structures in order to make the claculations faster:
